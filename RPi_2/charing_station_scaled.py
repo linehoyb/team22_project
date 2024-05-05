@@ -230,29 +230,6 @@ class Station_Manager():
 
         #Så må jeg enkelt og greit bare sende info for å triggre et shift i stm.
 
-
-        """
-        if(format(msg.topic) == "server/station_requested"):
-            # Extracting info from the json-message
-            json_payload = json.loads((msg.payload).decode('utf-8'))
-            msg_value = int(json_payload['msg']) #convert to a integer
-            print(msg_value)
-            if(msg_value == 1):
-                self.stm_driver.send("station_booked")
-            else:
-                self.stm_driver.send("station_free")
-        if(format(msg.topic) == "phone/connected"):
-            # Extracting info from the json-message
-            json_payload = json.loads((msg.payload).decode('utf-8'))
-            msg_value = int(json_payload['msg']) #convert to a integer
-            print(msg_value)
-            if(msg_value == 1):
-                self.stm_driver.send("car_connected")
-            else:
-                self.stm_driver.send("car_disconnected")
-        """
-        
-        
     def start(self, broker, port):
         print("Connecting to {}:{}".format(broker, port))
         self.client.connect(broker, port)
@@ -260,46 +237,11 @@ class Station_Manager():
         self.client.subscribe("server/station_reserved")
         self.client.subscribe("phone/connected")
         self.client.loop_start()
-        """
-        try:
-            # line below should not have the () after the function!
-            thread = Thread(target=self.client.loop_forever)
-            thread.start()
-        except KeyboardInterrupt:
-            print("Interrupted")
-            self.client.disconnect()
-        """
-"""
-broker, port = "localhost", 1883
-station = Charging_station()
-#Start stm her
-station_machine = Machine(name="stm_station", transitions=[t0, t1, t2, t3, t4, t5, t6], obj=station)
-station.stm = station_machine
 
-driver = Driver()
-driver.add_machine(station_machine)
-
-myclient = MQTT_Client_1()
-station.mqqt_client = myclient.client
-myclient.stm_driver = driver
-
-myclient.start(broker, port)
-driver.start(keep_active=True)
-"""
 
 #Prøver selv under her. Fikk ikke Line sitt til å funke (:
 
 #Dette er debugging tools om jeg trenger de til senere
-"""
-debug_level = logging.DEBUG
-logger = logging.getLogger(__name__)
-logger.setLevel(debug_level)
-ch = logging.StreamHandler()
-ch.setLevel(debug_level)
-formatter = logging.Formatter('%(asctime)s - %(name)-12s - %(levelname)-8s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
 
-"""
 
 Manager = Station_Manager()
