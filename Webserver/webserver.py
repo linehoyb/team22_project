@@ -138,21 +138,27 @@ class MQTT_Client_1:
     def on_message(self, client, userdata, msg):
         
         print("on_message(): topic: {}".format(msg.topic))
+        json_payload = json.loads((msg.payload).decode('utf-8'))
+
 
         if(format(msg.topic) == "phone/book_station"):
-
-        
+            user_id = json_payload['user_id']
+            webserver.book_station(user_id)
+            
         elif (format(msg.topic) == "phone/cancel_booking"):
+            user_id = json_payload['user_id']
+            station_id = json_payload['station_id']
+            webserver.cancel_booking(user_id, station_id)
         
         elif(format(msg.topic) == "station/connection"):
-            # Extracting info from the json-message
-            json_payload = json.loads((msg.payload).decode('utf-8'))
-            msg_value = int(json_payload['msg']) #convert to a boolean
-            print(msg_value)
-            if(msg_value == 1):
-               self.stm_driver.send("car_connected_to_station", "stm_car")
+
+            user_id = json_payload [user_id]
+            station_id = json_payload['station_id']
+            status = int(json_payload['status']) #convert to a int
+            if(status == 1):
+               webserver.car_connecting_to_station(user_id, station_id)
             else:
-               self.stm_driver.send("car_disconnected_from_station", "stm_car")
+               webserver.car_disconnecting_from_station(station_id)
         
         else:
             print("Received message from unknown topic: {}".format(msg.topic))
