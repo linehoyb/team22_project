@@ -3,12 +3,30 @@ import paho.mqtt.publish as publish
 import paho.mqtt.subscribe as subscribe
 import json
 import threading
+import random
 
 broker_address = "localhost"
 port = 1883
 
 def send_message(topic, message):
     publish.single(topic, message, hostname=broker_address, port=port)
+
+def book_station(user_id): 
+    topic = "phone/book_station"
+    message = {"user_id" : user_id}
+    send_message(topic, json.dumps(message))
+    app.setLabel("status_label", f"User {user_id} booked the charging station")
+    print(f"User {user_id} booked the charging station.")
+
+def cancel_booking(user_id):
+    topic = "phone/cancel_booking"
+    message = {"user_id" : user_id}
+    send_message(topic, json.dumps(message))
+    app.setLabel("status_label", f"User {user_id} cancelled the charging station")
+    print(f"User {user_id} cancelled the booking.")
+
+def initiate_id():
+    return random.randint(1, 8)
 
 def subscribe_to_topic(topic):
     msg = subscribe.simple(topic)
@@ -56,22 +74,35 @@ def unplug_button_pressed():
 #     app.removeButton("Disconnect")
 #     app.setLabel("status_label", "Disconnected")
 
-app = gui("Chargify", "500x600")
-app.setBg("lightgrey")
-app.setFont(family = "Arial")
-app.addButtons(["Request Info", "Charge Vehicle", "Unplug Charger"], [request_button_pressed, charge_button_pressed, unplug_button_pressed], rowspan=2)
-app.label("status_label", "")
+if __name__ == "__main__":
+    user_id = initiate_id()
+    print(f"User id: {user_id}")
+    app = gui("Chargify", "500x600")
+    app.setBg("lightgrey")
+    app.setFont(family = "Arial")
 
-app.setButtonRelief("Request Info", "raised")
-app.setButtonRelief("Charge Vehicle", "raised")
+    app.addButtons(["Request Info", "Charge Vehicle", "Unplug Charger"], [request_button_pressed, charge_button_pressed, unplug_button_pressed], rowspan=2)
+    app.addButtons(["Book Station", "Cancel Booking"], [lambda: book_station(user_id), lambda: cancel_booking(user_id)])
 
-app.setButtonWidth("Request Info", 20)
-app.setButtonWidth("Charge Vehicle", 20)
+    subscribe_thread = threading.Thread(target=subscribe_to_topic, args=("phone/book_station",))
+    subscribe_thread.daemon = True
+    subscribe_thread.start()
+    
+    app.label("status_label", "")
 
-app.label("status_label", "")
-app.setLabelWidth("status_label", 50)
-app.setLabelHeight("status_label", 3)
-app.setLabelRelief("status_label", "raised")
-app.setPadding(10, 10)
+    subscribe_thread = threading.Thread(target=subscribe_to_topic, args=("phone/cancel_booking",))
+    subscribe_thread.daemon = True
+    subscribe_thread.start()
 
-app.go()
+    app.setButtonRelief("Request Info", "raised")
+    app.setButtonRelief("Charge Vehicle", "raised")
+
+    app.setButtonWidth("Request Info", 20)
+    app.setButtonWidth("Charge Vehicle", 20)
+
+    app.label("status_label", "")
+    app.setLabelWidth("status_label", 50)
+    app.setLabelHeight("status_label", 3)
+    app.setLabelRelief("status_label", "raised")
+    app.setPadding(10, 10)
+    app.go()
