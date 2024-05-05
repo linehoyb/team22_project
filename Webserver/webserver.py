@@ -150,7 +150,7 @@ class MQTT_Client_1:
         self.client.subscribe("phone/book_station") # user_id
         self.client.subscribe("phone/cancel_booking") # user_id, station_id
         
-        self.client.subscribe("station/connection") # station_id, 0 / 1
+        self.client.subscribe("station/connection") # user_id, station_id, 0 / 1
         #self.client.subscribe("car/request_info") # Not in use atm, but can be used to calculate the estimated charging time
         try:
             # line below should not have the () after the function!
