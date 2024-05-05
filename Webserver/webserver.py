@@ -36,27 +36,36 @@ class Webserver:
         # Assign the station if there are users currently in queue
         if (len(self.user_queue_lst) != 0):
             print("There are users in the queue, reserve station")
+            
             # Tell the station that it is reserved
-            self.mqtt_client.publish("server/station_reserved", "{}, 1".format(station_id), self.QoS)
+            self.message = {"station_id" : "{}".format(station_id), "status:": "1"}
+            self.mqtt_client.publish("server/station_reserved", json.dumps(self.message), self.QoS)
         
             # Get user first in line and remove them from the queue
             self.user_id = self.user_queue_lst.pop(0)
-
-            # Assign the station to the user and tell the user that it's avaliable at once
+            # Put the user in the reserved list
             self.stations_reserved_lst.append([self.user_id, station_id])
-            self.mqtt_client.publish("server/assigned_station", "{}, {}".format(self.user_id, station_id), self.QoS)
-            self.mqtt_client.publish("server/wait_time", "{}, 0".format(self.user_id), self.QoS)
+
+            # Assign the station to the user 
+            self.message = {"user_id" : "{}".format(self.user_id), "station_id" : "{}".format(station_id) } 
+            self.mqtt_client.publish("server/assigned_station", json.dumps(self.message), self.QoS)
+            
+            # Tell the user that it's avaliable at once
+            self.message = {"user_id" : "{}".format(self.user_id), "status:": "0"}
+            self.mqtt_client.publish("server/wait_time", json.dumps(self.message), self.QoS)
 
             # Give a placement update for the others still in the queue if any
             if  (len(self.user_queue_lst) != 0):
                 for placement in self.user_queue_lst:
-                    self.mqtt_client.publish("server/wait_time", "{}, {}".format(self.user_queue_lst[placement], placement+1), self.QoS)
+                    self.message = {"user_id" : "{}".format(self.user_queue_lst[placement]), "status" : "{}".format(placement+1) }
+                    self.mqtt_client.publish("server/wait_time", json.dumps(self.message), self.QoS)
         
         else:
             # Tell the station that it is now avaliable
             print("No users in queue, station is now avaliable")
             self.avaliable_stations_lst.append(station_id)
-            self.mqtt_client.publish("server/station_reserved", "{}, 0".format(station_id), self.QoS)
+            self.message = {"station_id" : "{}".format(station_id), "status:": "0"}
+            self.mqtt_client.publish("server/station_reserved", json.dumps(self.message), self.QoS)
 
         
     def car_connecting_to_station(self, user_id, station_id): # TODO: Få station til å sende hit hvilken user som kobler til station
@@ -80,18 +89,24 @@ class Webserver:
         if (len(self.avaliable_stations_lst) != 0):
             # Reserve the first station in the avaliable list
             self.station_id = self.avaliable_stations_lst.pop(0) 
-
-            # Assign the station to the user and tell the user that it's avaliable at once
             self.stations_reserved_lst.add([user_id, self.station_id])
-            self.mqtt_client.publish("server/assigned_station", "{}, {}".format(user_id, self.station_id), self.QoS)
-            self.mqtt_client.publish("server/wait_time", "{}, 0".format(user_id), self.QoS)
+
+            # Assign the station to the user
+            self.message = {"user_id" : "{}".format(user_id), "station_id" : "{}".format(self.station_id) } 
+            self.mqtt_client.publish("server/assigned_station", json.dumps(self.message), self.QoS)
+            
+            #  Tell the user that it's avaliable at once
+            self.message = {"user_id" : "{}".format(user_id), "status:": "0"}
+            self.mqtt_client.publish("server/wait_time", json.dumps(self.message), self.QoS)
     
         else:
             # There are no stations avaliable, get placed in the queue
             self.user_queue_lst.append(user_id)
+            
             # Tell the user its placement in the queue
             self.placement = self.user_queue_lst.index(user_id) + 1
-            self.mqtt_client.publish("server/wait_time", "{}, {}".format(user_id, self.placement), self.QoS)
+            self.message = {"user_id" : "{}".format(user_id), "status" : "{}".format(self.placement+1) }
+            self.mqtt_client.publish("server/wait_time", json.dumps(self.message), self.QoS)
     
     
     def cancel_booking(self, user_id, station_id): # TODO: Få phone til å lagre station den har fått assigned og send det tilbake
@@ -125,6 +140,7 @@ class MQTT_Client_1:
         print("on_message(): topic: {}".format(msg.topic))
 
         if(format(msg.topic) == "phone/book_station"):
+
         
         elif (format(msg.topic) == "phone/cancel_booking"):
         
