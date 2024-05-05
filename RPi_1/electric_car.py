@@ -112,9 +112,9 @@ class MQTT_Client_1:
         if(format(msg.topic) == "station/connection"):
             # Extracting info from the json-message
             json_payload = json.loads((msg.payload).decode('utf-8'))
-            msg_value = int(json_payload['msg']) #convert to a boolean
-            print(msg_value)
-            if(msg_value == 1):
+            connection = int(json_payload['status']) #convert to a int
+            print(connection)
+            if(connection == 1):
                self.stm_driver.send("car_connected_to_station", "stm_car")
             else:
                self.stm_driver.send("car_disconnected_from_station", "stm_car")
