@@ -4,7 +4,7 @@ import paho.mqtt.client as mqtt
 import time
 import json
 import logging
-#from sense_hat import SenseHat
+from sense_hat import SenseHat
 
 
 
@@ -126,14 +126,14 @@ class Charging_station():
         print("The station is disconnected from a car.")
         #publish station/connection = 0
     
-        def update_led(self):
-            colors = {
-                "Free": (0, 255, 0),        # Green
-                "Booked": (0, 0, 255),      # Blue
-                "Connected": (255, 255, 0), # Yellow
-                "Disconnected": (255, 0, 0) # Red
-            }
-            self.sense_hat.set_pixel(self.id_number - 1, 0, colors[self.status])
+    def update_led(self):
+        colors = {
+            "Free": (0, 255, 0),        # Green
+            "Booked": (0, 0, 255),      # Blue
+            "Connected": (255, 255, 0), # Yellow
+            "Disconnected": (255, 0, 0) # Red
+        }
+        self.sense_hat.set_pixel(self.id_number - 1, 0, colors[self.status])
 
 
 class Station_Manager():
