@@ -1,0 +1,38 @@
+Test av webserver i mqttx
+
+phone/book_station
+{
+  "user_id": "123"
+}
+
+{
+  "user_id": "420"
+}
+
+
+phone/cancel_booking
+{
+  "user_id": "123",
+  "station_id": "station_0"
+}
+
+{
+  "user_id": "420",
+  "station_id": "station_1"
+}
+
+station/connection
+{
+  "user_id": "123",
+  "station_id": "station_1",
+  "status": "1"
+}
+
+station/connection
+{
+  "user_id": "123",
+  "station_id": "station_1",
+  "status": "0"
+}
+
+
