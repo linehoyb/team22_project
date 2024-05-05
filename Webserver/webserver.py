@@ -1,19 +1,26 @@
 '''
 This webserver keeps track of users in queue for a charging station, and which charging stations are avaliable and reserved. 
 
-Setup in MQTTX:
-* Subscribe to the topic "car/battery/#" to see the current car info.
+Setup in MQTTX for solo testing:
+* Subscribe to the topics in MQTTX: 
+* "server/assigned_station/#"
+* "server/wait_time/#" 
+* "server/station_reserved/#" 
 
-* Publish to the topic "car/request_info" to get the updated car info
-* Publish to the topic "station/connection" with the msg 1 or 0 to tell the car if it is connected to the
-* charging station or not.
+* Publish in MQTTX to the topics: 
+* "phone/book_station/#"
+* "phone/cancel_booking/#"
+* "station/connection/#" 
 
 In Mosquitto:
 I'm running localhost as the broker.
 
+* If you get socket error when running on windows:
+*    run the command netstat -ano | findstr1883
+*    then kill the process taskkill /F /PID 4464
+
 Python script:
 * You only need to start the run and then do the rest in MQTTX.
-
 '''
 from threading import Thread
 import paho.mqtt.client as mqtt
@@ -152,7 +159,7 @@ class MQTT_Client_1:
         
         elif(format(msg.topic) == "station/connection"):
 
-            user_id = json_payload [user_id]
+            user_id = json_payload ['user_id']
             station_id = json_payload['station_id']
             status = int(json_payload['status']) #convert to a int
             if(status == 1):
