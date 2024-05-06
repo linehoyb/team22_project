@@ -1,7 +1,7 @@
 '''
 This emulates an electric car, mainly the charging and draining of the battery.
 
-Setup in MQTTX:
+Setup in MQTTX for solo testing:
 * Subscribe to the topic "car/battery/#" to see the current car info.
 
 * Publish to the topic "car/request_info" to get the updated car info
@@ -13,7 +13,6 @@ I'm running localhost as the broker.
 
 Python script:
 * You only need to start the run and then do the rest in MQTTX.
-
 '''
 
 from stmpy import Driver, Machine
@@ -95,7 +94,8 @@ class MQTT_Client_1:
     
     def __init__(self):
         self.previous_time = time.time()
-        self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1)
+        self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1) # Running on windows
+        # self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1) # Running on raspberry pi
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         
@@ -135,7 +135,8 @@ class MQTT_Client_1:
             print("Interrupted")
             self.client.disconnect()
 
-broker, port = "localhost", 1883
+broker, port = "localhost", 1883 # connecting to internal broker
+#broker, port = "***.***.***.***", 1883 # connecting to external broker
 
 car = Car()
 car_machine = Machine(name="stm_car", transitions=[t0, t1, t2, t3, t4], obj=car)

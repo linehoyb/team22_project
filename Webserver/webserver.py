@@ -13,11 +13,7 @@ Setup in MQTTX for solo testing:
 * "station/connection/#" 
 
 In Mosquitto:
-I'm running localhost as the broker.
-
-* If you get socket error when running on windows:
-*    run the command netstat -ano | findstr1883
-*    then kill the process taskkill /F /PID 4464
+I'm running localhost as the broker for induvidual testing.
 
 Python script:
 * You only need to start the run and then do the rest in MQTTX.
@@ -31,8 +27,8 @@ class Webserver:
         # Webserver stuff
         self.user_queue_lst = []
         # The server knows that there are 8 stations in this location
-        #self.avaliable_stations_lst = ['station_0' ,'station_1' ,'station_2' ,'station_3' ,'station_4' ,'station_5' ,'station_6' ,'station_7']
-        self.avaliable_stations_lst = ['station_0','station_1']
+        self.avaliable_stations_lst = ['station_0' ,'station_1' ,'station_2' ,'station_3' ,'station_4' ,'station_5' ,'station_6' ,'station_7']
+        #self.avaliable_stations_lst = ['station_0','station_1'] # for quick testing
         self.stations_reserved_lst = []
 
         # MQTT client init
@@ -142,7 +138,8 @@ class Webserver:
 class MQTT_Client_1:
     
     def __init__(self):
-        self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1)
+        self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1) # Running on windows
+        # self.client = mqtt.Client() # Running on raspberry pi
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         
@@ -176,8 +173,7 @@ class MQTT_Client_1:
         else:
             print("Received message from unknown topic: {}".format(msg.topic))
         
-        
-        
+             
     def start(self, broker, port):
         print("Connecting to {}:{}".format(broker, port))
         self.client.connect(broker, port)
@@ -195,7 +191,8 @@ class MQTT_Client_1:
             print("Interrupted")
             self.client.disconnect()
 
-broker, port = "localhost", 1883
+broker, port = "localhost", 1883 # connecting to internal broker
+#broker, port = "***.***.***.***", 1883 # connecting to external broker
 
 webserver = Webserver()
 myclient = MQTT_Client_1()
