@@ -1,7 +1,7 @@
 '''
 This emulates an electric car, mainly the charging and draining of the battery.
 
-Setup in MQTTX for solo testing:
+Setup in MQTTX for solo testing::
 * Subscribe to the topic "car/battery/#" to see the current car info.
 
 * Publish to the topic "car/request_info" to get the updated car info
@@ -39,7 +39,6 @@ class Car:
         self.charging = False
         # MQTT client init
         self.QoS = 2 
-        self.mqtt_client.publish("car/battery", "{}".format(self.battery_percentage), self.QoS)
         #Thread simulating the car battery
         self.battery_percentage_thread = Thread(target=self.update_battery_percentage)
         self.battery_percentage_thread.start()
@@ -56,7 +55,8 @@ class Car:
     def on_information_request(self):
         # Someone is requesting car info through the MQTT broker
         print("Information requested")
-        self.mqtt_client.publish("car/battery", "{}".format(self.battery_percentage), self.QoS)
+        self.message = {"user_id" : "{}".format(myclient.user_id), "battery" : "{}".format(self.battery_percentage) } 
+        self.mqtt_client.publish("car/battery", json.dumps(self.message), self.QoS)
 
 # initial transition
 t0 = {
@@ -94,24 +94,26 @@ class MQTT_Client_1:
     
     def __init__(self):
         self.previous_time = time.time()
-        self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1) # Running on windows
-        # self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1) # Running on raspberry pi
+        #self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1) # If running on windows
+        self.client = mqtt.Client() # If running on rasberrypi
+
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
+
+        self.user_id = None
         
     def on_connect(self, client, userdata, flags, rc):
         print("on_connect(): {}".format(mqtt.connack_string(rc)))
 
     def on_message(self, client, userdata, msg):
-        
+        json_payload = json.loads((msg.payload).decode('utf-8'))
         print("on_message(): topic: {}".format(msg.topic))
 
         if(format(msg.topic) == "car/request_info"):
            self.stm_driver.send("info_requested", "stm_car")
-        
+           self.user_id = json_payload['user_id']
+
         if(format(msg.topic) == "station/connection"):
-            # Extracting info from the json-message
-            json_payload = json.loads((msg.payload).decode('utf-8'))
             connection = int(json_payload['status']) #convert to a int
             print(connection)
             if(connection == 1):
@@ -136,7 +138,8 @@ class MQTT_Client_1:
             self.client.disconnect()
 
 broker, port = "localhost", 1883 # connecting to internal broker
-#broker, port = "***.***.***.***", 1883 # connecting to external broker
+broker, port = "***.***.***.***", 1883 # connecting to external broker
+
 
 car = Car()
 car_machine = Machine(name="stm_car", transitions=[t0, t1, t2, t3, t4], obj=car)
