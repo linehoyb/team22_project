@@ -4,23 +4,29 @@ import paho.mqtt.client as mqtt
 import time
 import json
 import logging
-#from sense_hat import SenseHat
+from sense_hat import SenseHat
 
 
 
 ##DET SOM MANGLER NÅ ER AT DENNE IKKE KAN SENDE MELDINGER FORDI DEN IKKE HAR NOEN MQTT "ATTRIBUTES"
 class Charging_station():
 
-    def __init__(self, mqtt_client):
+    def __init__(self, name_id, row, mqtt_client, sense_hat):
         #Dette er feil, men copilot likte det så det er en fin start
         self.mqtt_client = mqtt_client
         self.charging = False
         self.connection = False
-        self.color = "off"
+        self.sense_hat = sense_hat
+        self.colors = (0,0,0) #The colours are initially off
         self.status = "Free"
         self.QoS = 2
+        self.id = name_id
+        self.row = row
+        self.update_led()
         self.mqtt_client.publish("station/status", "Station is ready", self.QoS)
+        self.set_stm()
 
+    def set_stm(self):
         #Add transitions her.
         t0 = {
             "source": "initial", 
@@ -34,7 +40,7 @@ class Charging_station():
             "effect": "on_booked()"
             }
         t2 = {
-            "trigger": "statoion_free",
+            "trigger": "station_free",
             "source": "Booked",
             "target": "Free",
             "effect": "on_free()"
@@ -72,8 +78,15 @@ class Charging_station():
             "source": "Free",
             "target": "Free"
             }
+        t8 = {
+            "trigger": "car_connected",
+            "source": "Free",
+            "target": "Connected",
+            "effect": "on_connected()"
+            }
+        
     
-        self.stm = stmpy.Machine(name="station", transitions=[t0, t1, t2, t3, t4, t5, t6, t7], obj=self)
+        self.stm = stmpy.Machine(name=self.id, transitions=[t0, t1, t2, t3, t4, t5, t6, t7, t8], obj=self)
 
     def on_free(self):
         #Det jeg faktisk trenger her:
@@ -81,89 +94,87 @@ class Charging_station():
         self.status = "Free"
         #connection = False
         self.connection = False
-        self.mqtt_client.publish("station/status", "Free", self.QoS)
+        #self.mqtt_client.publish("station/status", json.dumps({"id": self.id, "status": self.status}), self.QoS)
 
-        #led = white
-        """
-        if(self.color = "on"):
-            sense = SenseHat()
-            colour = (0, 255, 0)
-            sense.clear(colour)
-        """
+        #led = green
+        self.update_led()
+
         print("The station is free, and is not connected to a car.")
 
     def on_booked(self):
         self.status="Booked"
-        self.mqtt_client.publish("station/status", "Booked", self.QoS)
-        #led = orange
-        """
-        if(self.color = "on"):
-            sense = SenseHat()
-            colour = (255, 165, 0)
-            sense.clear(colour)
-        """
+        #self.mqtt_client.publish("station/status", json.dumps({"id": self.id, "status": self.status}), self.QoS)        #json.dumps({"id": self.id_number, "status": self.status})
+        #led = blue
+        self.update_led()
+
         print("The station is booked, but not connected to a car.")
 
-    def on_connected(self):
+    def on_connected(self): #Jeg mangler å legge til user_id til stasjonen
         self.status="Connected"
-        self.mqtt_client.publish("station/status", "Connected", self.QoS)
+        #self.mqtt_client.publish("station/status", json.dumps({"id": self.id, "status": self.status}), self.QoS)
         #led = yellow
-        """
-        if(self.color = "on"):
-            sense = SenseHat()
-            colour = (255, 255, 0)
-            sense.clear(colour)
-        """
+        self.update_led()
+
         #Kan eventuelt adde at det er en fade her og.
-
-
-        self.mqtt_client.publish("station/connection", "1", self.QoS)
         #timer?
         print("The station is connected to a car.")
 
-    def on_disconnected(self):
+    def on_disconnected(self): #Jeg mangler å fjærne user_id fra stasjonen
         self.status="Disconnected"
-        self.mqtt_client.publish("station/status", "Disconected", self.QoS)
+        #self.mqtt_client.publish("station/status", json.dumps({"id": self.id, "status": self.status}), self.QoS)
         #led = red?
-        """
-        if(self.color = "on"):
-            sense = SenseHat()
-            colour = (255, 0, 0)
-            sense.clear(colour)
-        """
+        self.update_led()
 
-        self.mqtt_client.publish("station/connection", "0", self.QoS)
         print("The station is disconnected from a car.")
         #publish station/connection = 0
+    
+    def update_led(self):
+        colors = {
+            "Free": (0, 255, 0),        # Green
+            "Booked": (0, 0, 255),      # Blue
+            "Connected": (255, 165, 0), # Yellow
+            "Disconnected": (255, 0, 0) # Red
+        }
+        row = self.row
+        for x in range(8):
+            self.sense_hat.set_pixel(x, row, colors[self.status])
 
 
-
-class MQTT_Client_1():
+class Station_Manager():
     #lalala
     
-    def __init__(self):
+    def __init__(self, sense_hat):
         #Starter med å lage en mqtt client:
         self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1)
         #Callback methods:
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         #Connect to the broker
-        self.client.connect("localhost", 1883)
+        self.client.connect("192.168.136.102", 1883)
         #Subscribe to the topics needed
         #Dette vil her være: "station/connection"
-        self.client.subscribe("station/connection")
+        self.client.subscribe("server/station_reserved")
         self.client.subscribe("phone/connected")
         #Start the internal loop to process MQTT messages
         self.client.loop_start()
+        self.stations = {}
+        self.sense_hat = sense_hat
+        self.QoS = 2
 
         #Starter så stmpy driveren:
         self.stm_driver = stmpy.Driver()
         self.stm_driver.start(keep_active=True)
 
         #Kan hende jeg må starte stm-en et sted og (:
-        new_stm = Charging_station(self.client)
-        self.stm_driver.add_machine(new_stm.stm)
-        self.stm_driver.start()
+        #For å scale den må jeg starte 8 stykker
+        for row in range(8):
+            self.name_id = "station_" + str(row)
+            print(self.name_id)
+            self.stations[row] = self.name_id
+            self.stations[self.name_id] = None
+            new_stm = Charging_station(self.name_id ,row ,self.client, self.sense_hat)
+            self.stm_driver.add_machine(new_stm.stm)
+            self.stm_driver.start()
 
     def stop(self):
         #Stop the MQTT client
@@ -184,52 +195,40 @@ class MQTT_Client_1():
         #Neste så må jeg finne ut hva slags command jeg har fått:
         #json.topic = hvor jeg fikk den fra (eks: station/connection)
         json_topic = msg.topic
+
         #json.payload = hva som ble sendt (eks: "msg": 1)
+        json_id = json_msg["station_id"]
         
-        json_payload = json_msg["msg"]
         #Først ser jeg hvor jeg fikk meldingen fra:
-        if(json_topic == "station/connection"):
-            
-            #Så ser jeg hva meldingen var
-            if(json_payload == str(1)):
-                self.stm_driver.send("station_booked", "station")
-            else:
-                self.stm_driver.send("statoion_free", "station")
-        if(json_topic == "phone/connected"):
-            
-            if(json_payload == str(1)):
-                self.stm_driver.send("car_connected", "station")
-            else:
-                self.stm_driver.send("car_disconnected", "station")
-        
+        try:
+            if(json_topic == "server/station_reserved"):
+                json_payload = json_msg["status"]
+                
+                #Så ser jeg hva meldingen var
+                if(json_payload == str(1)):
+                    self.stm_driver.send("station_booked", json_id)
+                else:
+                    self.stm_driver.send("station_free", json_id)
+            if(json_topic == "phone/connected"):
+                json_payload = json_msg["connected"]
+                #Trenger å store denne et sted så jeg kan bruke den senere
+                json_user_id = json_msg["user_id"]
+                if(json_payload == str(1)):
+                    self.stations[json_id] = json_user_id
+                    #I cant publish here. Need to find a way to send the user_id to the station
+                    self.client.publish("station/connection", json.dumps({"station_id": json_id, "status": 1, "user_id": json_user_id}), self.QoS)
+                    self.stm_driver.send("car_connected", json_id)
+                else:
+                    self.stations[json_id] = None
+                    self.client.publish("station/connection", json.dumps({"station_id": json_id, "status": 0, "user_id": json_user_id}), self.QoS)
+                    self.stm_driver.send("car_disconnected", json_id)
+        except:
+            print("Incorrect topic or payload")    
 
         #Så må jeg se etter om det er true eller false:
 
         #Så må jeg enkelt og greit bare sende info for å triggre et shift i stm.
 
-
-        """
-        if(format(msg.topic) == "server/station_requested"):
-            # Extracting info from the json-message
-            json_payload = json.loads((msg.payload).decode('utf-8'))
-            msg_value = int(json_payload['msg']) #convert to a integer
-            print(msg_value)
-            if(msg_value == 1):
-                self.stm_driver.send("station_booked")
-            else:
-                self.stm_driver.send("station_free")
-        if(format(msg.topic) == "phone/connected"):
-            # Extracting info from the json-message
-            json_payload = json.loads((msg.payload).decode('utf-8'))
-            msg_value = int(json_payload['msg']) #convert to a integer
-            print(msg_value)
-            if(msg_value == 1):
-                self.stm_driver.send("car_connected")
-            else:
-                self.stm_driver.send("car_disconnected")
-        """
-        
-        
     def start(self, broker, port):
         print("Connecting to {}:{}".format(broker, port))
         self.client.connect(broker, port)
@@ -237,46 +236,12 @@ class MQTT_Client_1():
         self.client.subscribe("server/station_reserved")
         self.client.subscribe("phone/connected")
         self.client.loop_start()
-        """
-        try:
-            # line below should not have the () after the function!
-            thread = Thread(target=self.client.loop_forever)
-            thread.start()
-        except KeyboardInterrupt:
-            print("Interrupted")
-            self.client.disconnect()
-        """
-"""
-broker, port = "localhost", 1883
-station = Charging_station()
-#Start stm her
-station_machine = Machine(name="stm_station", transitions=[t0, t1, t2, t3, t4, t5, t6], obj=station)
-station.stm = station_machine
 
-driver = Driver()
-driver.add_machine(station_machine)
-
-myclient = MQTT_Client_1()
-station.mqqt_client = myclient.client
-myclient.stm_driver = driver
-
-myclient.start(broker, port)
-driver.start(keep_active=True)
-"""
 
 #Prøver selv under her. Fikk ikke Line sitt til å funke (:
 
 #Dette er debugging tools om jeg trenger de til senere
-"""
-debug_level = logging.DEBUG
-logger = logging.getLogger(__name__)
-logger.setLevel(debug_level)
-ch = logging.StreamHandler()
-ch.setLevel(debug_level)
-formatter = logging.Formatter('%(asctime)s - %(name)-12s - %(levelname)-8s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
 
-"""
+sense_hat = SenseHat()
 
-m = MQTT_Client_1()
+Manager = Station_Manager(sense_hat)#Add "sense_hat" to the arguments when needed
