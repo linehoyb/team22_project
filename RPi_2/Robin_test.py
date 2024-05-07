@@ -4,28 +4,31 @@ import paho.mqtt.client as mqtt
 import time
 import json
 import logging
-#from sense_hat import SenseHat
+from sense_hat import SenseHat
 
 
 
 ##DET SOM MANGLER NÅ ER AT DENNE IKKE KAN SENDE MELDINGER FORDI DEN IKKE HAR NOEN MQTT "ATTRIBUTES"
 class Charging_station():
 
-    def __init__(self, name_id, row, mqtt_client):
+    def __init__(self, name_id, row, mqtt_client, sense_hat):
         #Dette er feil, men copilot likte det så det er en fin start
         self.mqtt_client = mqtt_client
         self.charging = False
         self.connection = False
-        #self.sense_hat = sense_hat
+        self.sense_hat = sense_hat
         self.colors = (0,0,0) #The colours are initially off
         self.update_led()
         self.status = "Free"
         self.QoS = 2
         self.id = name_id
         self.row = row #Dette vil være raden den spesifike stasjonen skal ha på sense hatten
-        self.mqtt_client.publish("station/status", "Station is ready", self.QoS)
+        self._setup_transitions()
+        self._publish_initial_status()
 
-        #Add transitions her.
+               
+
+    def _setup_transitions(self):
         t0 = {
             "source": "initial", 
             "target": "Free",
@@ -38,7 +41,7 @@ class Charging_station():
             "effect": "on_booked()"
             }
         t2 = {
-            "trigger": "station_free",
+            "trigger": "statoion_free",
             "source": "Booked",
             "target": "Free",
             "effect": "on_free()"
@@ -82,9 +85,11 @@ class Charging_station():
             "target": "Connected",
             "effect": "on_connected()"
             }
-        
-    
-        self.stm = stmpy.Machine(name=name_id, transitions=[t0, t1, t2, t3, t4, t5, t6, t7, t8], obj=self)
+            
+        self.stm = stmpy.Machine(name=self.id, transitions=[t0, t1, t2, t3, t4, t5, t6, t7, t8], obj=self)
+
+    def _publish_initial_status(self):
+        self.mqtt_client.publish("station/status", "Station is ready", self.QoS)
 
     def on_free(self):
         #Det jeg faktisk trenger her:
@@ -95,7 +100,7 @@ class Charging_station():
         self.mqtt_client.publish("station/status", json.dumps({"id": self.id, "status": self.status}), self.QoS)
 
         #led = green
-        #self.update_led()
+        self.update_led()
 
         print("The station is free, and is not connected to a car.")
 
@@ -103,7 +108,7 @@ class Charging_station():
         self.status="Booked"
         self.mqtt_client.publish("station/status", json.dumps({"id": self.id, "status": self.status}), self.QoS)        #json.dumps({"id": self.id_number, "status": self.status})
         #led = blue
-        #self.update_led()
+        self.update_led()
 
         print("The station is booked, but not connected to a car.")
 
@@ -111,7 +116,7 @@ class Charging_station():
         self.status="Connected"
         self.mqtt_client.publish("station/status", json.dumps({"id": self.id, "status": self.status}), self.QoS)
         #led = yellow
-        #self.update_led()
+        self.update_led()
 
         #Kan eventuelt adde at det er en fade her og.
         #timer?
@@ -121,7 +126,7 @@ class Charging_station():
         self.status="Disconnected"
         self.mqtt_client.publish("station/status", json.dumps({"id": self.id, "status": self.status}), self.QoS)
         #led = red?
-        #self.update_led()
+        self.update_led()
 
         print("The station is disconnected from a car.")
         #publish station/connection = 0
@@ -139,14 +144,14 @@ class Charging_station():
 class Station_Manager():
     #lalala
     
-    def __init__(self):
+    def __init__(self, sense_hat):
         #Starter med å lage en mqtt client:
         self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1)
         #Callback methods:
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         #Connect to the broker
-        self.client.connect("10.0.0.24", 1883)
+        self.client.connect("localhost", 1883)
         #Subscribe to the topics needed
         #Dette vil her være: "station/connection"
         self.client.subscribe("station/connection")
@@ -167,7 +172,7 @@ class Station_Manager():
             print(self.name_id)
             self.stations[row] = self.name_id
             self.stations[self.name_id] = None
-            new_stm = Charging_station(self.name_id ,row ,self.client)
+            new_stm = Charging_station(self.name_id ,row ,self.client, self.sense_hat)
             self.stm_driver.add_machine(new_stm.stm)
             self.stm_driver.start()
 
@@ -179,11 +184,14 @@ class Station_Manager():
         self.stm_driver.stop()
         
     def on_connect(self, client, userdata, flags, rc):
-        print("on_connect(): {}".format(mqtt.connack_string(rc)))
+        self._print_connection_message("on_connect(): ", rc)
 
-    def on_message(self, client, userdata, msg):
-        
-        print("on_message(): topic: {}".format(msg.topic))
+    def on_message(self, client, userdata, msg):        
+        self._print_connection_message("on_message(): topic: ", msg.topic)
+
+    def _print_connection_message(self, prefix, message):
+        print(prefix + str(message))
+
 
         #Henter først info fra json-melding
         json_msg = json.loads((msg.payload).decode('utf-8'))
@@ -233,7 +241,6 @@ class Station_Manager():
 #Prøver selv under her. Fikk ikke Line sitt til å funke (:
 
 #Dette er debugging tools om jeg trenger de til senere
+sense_hat = SenseHat()
 
-#sense_hat = SenseHat()
-
-Manager = Station_Manager()#sense_hat)#Add "sense_hat" to the arguments when needed
+Manager = Station_Manager(sense_hat)#Add "sense_hat" to the arguments when needed
